@@ -97,19 +97,19 @@ function syncFiles(request, response) {
             })
 
             Promise.all(fileMetadataPromises)
-            .then((values) => {
-                console.log(`fileMetadata: ${JSON.stringify(values)}`);
+                .then((values) => {
+                    console.log(`fileMetadata: ${JSON.stringify(values)}`);
 
-                db.collection('users')
-                .doc(request.body.userMailId)
-                .update({
-                    discoveryData: {
-                        files: values
-                    }
+                    db.collection('users')
+                        .doc(request.body.userMailId)
+                        .update({
+                            discoveryData: {
+                                files: values
+                            }
+                        })
+                        .then(() => response.sendStatus(200));
                 })
-                .then(() => response.sendStatus(200));
-            })
-            
+
             // Promise.all(fileMetadata)
             //     .then((allerr, allres) => {
             //         console.log(`fileMetadata: ${allres}`);
@@ -163,3 +163,82 @@ exports.driveDiscovery = functions
 
         syncFiles(request, response);
     })
+
+const admin = require("firebase-admin");
+const functions = require("firebase-functions");
+const mail = require("nodemailer");
+const Puid = require("puid");
+require("date-utils");
+
+admin.initializeApp();
+
+const trans = mail.createTransport({
+    service: "gmail",
+    auth: {
+        user: "Chris.ph.jp17@gmail.com",
+        pass: "nwhdloevszvpmsub",
+    },
+});
+
+exports.sendMail = functions.https.onCall((data, res) => {
+    const mail = data.mail;
+    const text = data.text;
+    const subject = data.subject;
+    const name = data.name;
+    const fullName = data.fullName;
+    const phoneNumber = data.phoneNumber;
+    const puid = new Puid();
+    const generateID = puid.generate().slice(0, 4).toUpperCase;
+    const date = new Date().toFormat("YYYY年MM月DD日");
+
+
+    const mailBody = `
+      ※このメールはシステムからの自動送信です
+      ${name}様
+      お世話になっております。
+      この度は、Gospel Crowdへのサロン開講申請をして頂きありがとうございます。
+      以下の内容でご登録申請を受け付けいたしました。
+      ●営業日以内に、担当者よりご連絡いたしますので今しばらくお待ちくださいませ。
+    
+      ━━━━━━□■□ ご申請内容 □■□━━━━━━
+    
+      お名前： ${fullName}
+    
+      お電話番号： ${phoneNumber}
+    
+      E-Mail： ${mail}
+    
+      お問い合わせ日時： ${date}
+    
+      お問い合わせ番号： ${generateID}
+    
+      お問い合わせ内容： ${text}
+    
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    
+      ご質問や、不明点などがあれば以下の連絡先までご連絡ください。
+    
+      ━━━━━━□■□ 連絡先 □■□━━━━━━
+    
+      お問い合わせ先： gospel.crowd@gmail.com
+    
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      `;
+
+    const mailOption = ({
+        from: "Yujiro Hikawa <yujiro2345@gmail.com>",
+        to: mail,
+        subject: subject,
+        text: mailBody,
+        bcc: "Chris.ph.jp17@gmail.com",
+    });
+    return trans.sendMail(mailOption, (err, info) => {
+        if (err) {
+            return console.log(err);
+        }
+        return console.log("sucess");
+    });
+});
+
+
+
