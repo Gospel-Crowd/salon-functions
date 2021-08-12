@@ -1,22 +1,30 @@
-const { google } = require('googleapis');
-const OAuth2 = google.auth.OAuth2;
-const drive = google.drive('v3');
+require("date-utils");
 
+const { google } = require('googleapis');
 const { Storage } = require('@google-cloud/storage');
-const storage = new Storage();
-const myBucket = storage.bucket('gospel-crowd-salon-app-test-bucket');
 
 const admin = require('firebase-admin');
-admin.initializeApp();
-var db = admin.firestore();
-
 const functions = require('firebase-functions');
-
 const googleCredentials = require('./credentials.json');
+const mailer = require("nodemailer");
+const Puid = require("puid");
 
+// Initialize Firebase App
+admin.initializeApp();
+
+// Initialize DB
+var db = admin.firestore();
 db.settings({
     ignoreUndefinedProperties: true,
 })
+
+// Initialize Storage
+const drive = google.drive('v3');
+const storage = new Storage();
+const myBucket = storage.bucket('gospel-crowd-salon-app-test-bucket');
+
+// Initialize Auth
+const OAuth2 = google.auth.OAuth2;
 
 function transferFileToStorage(request, response) {
     console.log(`File ID to Transfer: ${request.body.fileId}`);
@@ -118,13 +126,11 @@ function syncFiles(request, response) {
     });
 }
 
-const runtimeOpts = {
-    timeoutSeconds: 540,
-    memory: '4GB'
-}
-
 exports.driveTransfer = functions
-    .runWith(runtimeOpts)
+    .runWith({
+        timeoutSeconds: 540,
+        memory: '4GB'
+    })
     .https
     .onRequest((request, response) => {
         const oAuth2Client = new OAuth2(
@@ -164,23 +170,7 @@ exports.driveDiscovery = functions
         syncFiles(request, response);
     })
 
-const admin = require("firebase-admin");
-const functions = require("firebase-functions");
-const mail = require("nodemailer");
-const Puid = require("puid");
-require("date-utils");
-
-admin.initializeApp();
-
-const trans = mail.createTransport({
-    service: "gmail",
-    auth: {
-        user: "Chris.ph.jp17@gmail.com",
-        pass: "nwhdloevszvpmsub",
-    },
-});
-
-exports.sendMail = functions.https.onCall((data, res) => {
+exports.sendSalonRegistrationThanksMail = functions.https.onCall((data, res) => {
     const mail = data.mail;
     const text = data.text;
     const subject = data.subject;
@@ -188,9 +178,8 @@ exports.sendMail = functions.https.onCall((data, res) => {
     const fullName = data.fullName;
     const phoneNumber = data.phoneNumber;
     const puid = new Puid();
-    const generateID = puid.generate().slice(0, 4).toUpperCase;
+    const generateID = puid.generate().slice(0, 4).toUpperCase();
     const date = new Date().toFormat("YYYY年MM月DD日");
-
 
     const mailBody = `
       ※このメールはシステムからの自動送信です
@@ -225,20 +214,62 @@ exports.sendMail = functions.https.onCall((data, res) => {
       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
       `;
 
-    const mailOption = ({
-        from: "Yujiro Hikawa <yujiro2345@gmail.com>",
+    return mailer.createTransport({
+        service: "gmail",
+        auth: {
+            user: functions.config().gmail.id,
+            pass: functions.config().gmail.key,
+        },
+    }).sendMail({
+        from: "Gospel Crowd <gospel.crowd@gmail.com>",
         to: mail,
         subject: subject,
         text: mailBody,
-        bcc: "Chris.ph.jp17@gmail.com",
-    });
-    return trans.sendMail(mailOption, (err, info) => {
+        bcc: "samuel.anudeep@gmail.com",
+    }, (err, info) => {
         if (err) {
             return console.log(err);
         }
-        return console.log("sucess");
+        return console.log("success");
     });
 });
 
+exports.sendFeedbackMailToGospelCrowd = functions.https.onCall((data, res) => {
+    const mailBody = `
+      ※このメールはシステムからの自動送信です
+      
+      お客様から以下のフィードバックが届きました。
+    
+      ━━━━━━□■□ お問い合わせ内容 □■□━━━━━━
+    
+      お名前： ${data.name}
+    
+      メールアドレス： ${data.mail}
+    
+      お問い合わせカテゴリー： ${data.category}
 
+      お問い合わせ内容： ${data.content}
+    
+      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+      `;
+
+    return mailer.createTransport({
+        service: "gmail",
+        auth: {
+            user: functions.config().gmail.id,
+            pass: functions.config().gmail.key,
+        },
+    }).sendMail({
+        from: "Gospel Crowd <gospel.crowd@gmail.com>",
+        to: 'gospel.crowd@gmail.com',
+        subject: 'アプリから新しいフィードバックをもらいました',
+        text: mailBody,
+        bcc: "samuel.anudeep@gmail.com",
+    }, (err, info) => {
+        if (err) {
+            return console.log(err);
+        }
+        return console.log("Successfully sent feedback mail to Gospel Crowd");
+    });
+});
 
