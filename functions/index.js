@@ -171,19 +171,13 @@ exports.driveDiscovery = functions
     })
 
 exports.sendSalonRegistrationThanksMail = functions.https.onCall((data, res) => {
-    const mail = data.mail;
-    const text = data.text;
-    const subject = data.subject;
-    const name = data.name;
-    const fullName = data.fullName;
-    const phoneNumber = data.phoneNumber;
     const puid = new Puid();
     const generateID = puid.generate().slice(0, 4).toUpperCase();
     const date = new Date().toFormat("YYYY年MM月DD日");
 
     const mailBody = `
       ※このメールはシステムからの自動送信です
-      ${name}様
+      ${data.fullName} 様
       お世話になっております。
       この度は、Gospel Crowdへのサロン開講申請をして頂きありがとうございます。
       以下の内容でご登録申請を受け付けいたしました。
@@ -191,23 +185,23 @@ exports.sendSalonRegistrationThanksMail = functions.https.onCall((data, res) => 
     
       ━━━━━━□■□ ご申請内容 □■□━━━━━━
     
-      お名前： ${fullName}
+      お名前： ${data.fullName}
     
-      お電話番号： ${phoneNumber}
+      お電話番号： ${data.phoneNumber}
     
-      E-Mail： ${mail}
+      E-Mail： ${data.mail}
     
       お問い合わせ日時： ${date}
     
       お問い合わせ番号： ${generateID}
     
-      お問い合わせ内容： ${text}
+      お問い合わせ内容： ${data.text}
     
       ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     
       ご質問や、不明点などがあれば以下の連絡先までご連絡ください。
     
-      ━━━━━━□■□ 連絡先 □■□━━━━━━
+      ━━━━━━□■□ 連絡先 □■□━━━━━━━━━
     
       お問い合わせ先： gospel.crowd@gmail.com
     
@@ -222,8 +216,8 @@ exports.sendSalonRegistrationThanksMail = functions.https.onCall((data, res) => 
         },
     }).sendMail({
         from: "Gospel Crowd <gospel.crowd@gmail.com>",
-        to: mail,
-        subject: subject,
+        to: `${data.mail}, gospel.crowd@gmail.com`,
+        subject: '新しいサロン登録リクエスト',
         text: mailBody,
         bcc: "samuel.anudeep@gmail.com",
     }, (err, info) => {
